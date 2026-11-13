@@ -124,6 +124,50 @@ def test_distance_point_to_segment_nm():
     assert 58.0 < dist < 62.0
 
 
+def test_min_route_distance_penetrating_and_inside():
+    # 10x10 degree polygon
+    poly = [[10.0, 10.0], [10.0, 20.0], [20.0, 20.0], [20.0, 10.0]]
+
+    # Case A: Route segment penetrates through polygon
+    route_penetrating = [[5.0, 15.0], [25.0, 15.0]]
+    assert min_route_distance_to_polygon_nm(route_penetrating, poly) == 0.0
+
+    # Case B: Route waypoint is inside polygon
+    route_inside = [[12.0, 15.0], [30.0, 30.0]]
+    assert min_route_distance_to_polygon_nm(route_inside, poly) == 0.0
+
+
+def test_min_route_distance_single_point():
+    poly = [[10.0, 10.0], [10.0, 20.0], [20.0, 20.0], [20.0, 10.0]]
+
+    # Single waypoint outside polygon (5 degrees north of northern edge lat=20)
+    # 5 degrees latitude ~ 300 NM
+    single_point = [[25.0, 15.0]]
+    dist = min_route_distance_to_polygon_nm(single_point, poly)
+    assert 295.0 < dist < 305.0
+
+    # Single waypoint inside polygon returns 0.0
+    single_inside = [[15.0, 15.0]]
+    assert min_route_distance_to_polygon_nm(single_inside, poly) == 0.0
+
+
+def test_min_route_distance_exterior_clearance():
+    poly = [[10.0, 10.0], [10.0, 20.0], [20.0, 20.0], [20.0, 10.0]]
+
+    # Parallel route 5 degrees west of poly edge (lon=5 vs lon=10 at lat 10..20)
+    # At lat 15, 5 deg lon * 60 * cos(15 deg) ~ 289.78 NM
+    parallel_route = [[10.0, 5.0], [20.0, 5.0]]
+    dist = min_route_distance_to_polygon_nm(parallel_route, poly)
+    assert 280.0 < dist < 300.0
+
+
+def test_min_route_distance_empty_and_degenerate():
+    poly = [[10.0, 10.0], [10.0, 20.0], [20.0, 20.0], [20.0, 10.0]]
+    assert min_route_distance_to_polygon_nm([], poly) == float("inf")
+    assert min_route_distance_to_polygon_nm([[10.0, 10.0]], []) == float("inf")
+    assert min_route_distance_to_polygon_nm([[10.0, 10.0]], [[1.0, 1.0], [2.0, 2.0]]) == float("inf")
+
+
 # --- 3. Vessel Profiles & Fuel Engine Physics ---
 
 def test_vessel_profiles():

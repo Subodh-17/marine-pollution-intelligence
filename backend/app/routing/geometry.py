@@ -277,13 +277,38 @@ def min_route_distance_to_polygon_nm(
 ) -> float:
     """
     Calculates closest distance in Nautical Miles from an entire route to a polygon boundary.
+    If the route intersects the polygon or any waypoint is inside, returns 0.0 NM.
+    Handles single-point routes and multi-segment trajectories accurately.
     """
-    if not route_coords or not polygon:
+    if not route_coords or not polygon or len(polygon) < 3:
         return float("inf")
 
-    min_dist = float("inf")
+    # If any waypoint lies inside the polygon, distance is zero
+    for pt in route_coords:
+        if point_in_polygon(pt[0], pt[1], polygon):
+            return 0.0
+
     poly_len = len(polygon)
 
+    # Single-point route (e.g. stationary vessel position or single waypoint)
+    if len(route_coords) == 1:
+        pt = route_coords[0]
+        min_d = float("inf")
+        for j in range(poly_len):
+            p1 = polygon[j]
+            p2 = polygon[(j + 1) % poly_len]
+            min_d = min(min_d, distance_point_to_segment_nm(pt[0], pt[1], p1[0], p1[1], p2[0], p2[1]))
+        return min_d
+
+    # If any route segment penetrates the polygon, distance is zero
+    for i in range(len(route_coords) - 1):
+        r1 = route_coords[i]
+        r2 = route_coords[i + 1]
+        if segment_intersects_polygon(r1, r2, polygon):
+            return 0.0
+
+    # Exterior route: find minimum clearance between all route segments and polygon edges
+    min_dist = float("inf")
     for i in range(len(route_coords) - 1):
         r1 = route_coords[i]
         r2 = route_coords[i + 1]
@@ -292,9 +317,11 @@ def min_route_distance_to_polygon_nm(
             p1 = polygon[j]
             p2 = polygon[(j + 1) % poly_len]
 
-            # Sample distances
+            # Sample distances between polygon vertices and route segment,
+            # and route endpoints and polygon boundary edge
             d1 = distance_point_to_segment_nm(p1[0], p1[1], r1[0], r1[1], r2[0], r2[1])
             d2 = distance_point_to_segment_nm(r1[0], r1[1], p1[0], p1[1], p2[0], p2[1])
-            min_dist = min(min_dist, d1, d2)
+            d3 = distance_point_to_segment_nm(r2[0], r2[1], p1[0], p1[1], p2[0], p2[1])
+            min_dist = min(min_dist, d1, d2, d3)
 
     return min_dist
